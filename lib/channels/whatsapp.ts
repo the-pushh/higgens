@@ -47,20 +47,26 @@ async function parseInbound(req: Request): Promise<ParseResult> {
   return out;
 }
 
-async function send(to: string, text: string): Promise<void> {
+async function post(body: Record<string, unknown>, what: string): Promise<void> {
   const { phoneNumberId, accessToken, apiVersion } = env.whatsapp();
   const res = await fetch(`https://graph.facebook.com/${apiVersion}/${phoneNumberId}/messages`, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to: to.replace(/^\+/, ""),
-      type: "text",
-      text: { preview_url: false, body: text },
-    }),
+    body: JSON.stringify({ messaging_product: "whatsapp", ...body }),
   });
-  if (!res.ok) throw new Error(`WhatsApp send failed ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(`WhatsApp ${what} failed ${res.status}: ${await res.text()}`);
 }
 
-export const whatsapp: Channel = { name: "whatsapp", parseInbound, send };
+async function send(to: string, text: string): Promise<void> {
+  await post(
+    { recipient_type: "individual", to: to.replace(/^\+/, ""), type: "text", text: { preview_url: false, body: text } },
+    "send",
+  );
+}
+
+/** Blue ticks + typing bubble in one request. The bubble clears when we reply or after ~25s. */
+async function acknowledge(msg: InboundMessage): Promise<void> {
+  await post({ status: "read", message_id: msg.id, typing_indicator: { type: "text" } }, "read/typing");
+}
+
+export const whatsapp: Channel = { name: "whatsapp", parseInbound, send, acknowledge };

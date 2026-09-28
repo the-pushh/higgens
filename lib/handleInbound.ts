@@ -35,10 +35,13 @@ async function processMessage(channel: Channel, msg: InboundMessage): Promise<vo
       console.log(`[${channel.name}] duplicate ${msg.id} from ${msg.from}, skipping`);
       return;
     }
+    // Read receipt + typing bubble while we think. Never block or fail on it.
+    const ack = channel.acknowledge?.(msg).catch((err) => console.warn(`[${channel.name}] acknowledge failed`, err));
     const history = await getHistory(channel.name, msg.from);
     // history already contains the message we just stored; drop it so respond() adds it once
     const prior = history.length && history[history.length - 1].role === "user" ? history.slice(0, -1) : history;
     const reply = await respond(msg, prior);
+    await ack; // make sure the typing request went out before the reply lands
     await channel.send(msg.from, reply);
     await recordOutbound(channel.name, msg.from, reply);
   } catch (err) {

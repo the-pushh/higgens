@@ -19,4 +19,9 @@ export interface Channel {
   name: ChannelName;
   parseInbound(req: Request): Promise<ParseResult>;
   send(to: string, text: string): Promise<void>;
+  /**
+   * Optional: mark the inbound message as read and show a typing bubble while
+   * the concierge thinks. Best effort; failures are logged, never fatal.
+   */
+  acknowledge?(msg: InboundMessage): Promise<void>;
 }

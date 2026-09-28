@@ -34,18 +34,34 @@ async function parseInbound(req: Request): Promise<ParseResult> {
   return [msg];
 }
 
-async function send(to: string, text: string): Promise<void> {
-  const { apiUrl, keyId, secretKey, fromNumber } = env.sendblue();
-  const res = await fetch(apiUrl, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "sb-api-key-id": keyId,
-      "sb-api-secret-key": secretKey,
-    },
-    body: JSON.stringify({ number: to, content: text, ...(fromNumber ? { from_number: fromNumber } : {}) }),
-  });
-  if (!res.ok) throw new Error(`Sendblue send failed ${res.status}: ${await res.text()}`);
+function headers() {
+  const { keyId, secretKey } = env.sendblue();
+  return { "content-type": "application/json", "sb-api-key-id": keyId, "sb-api-secret-key": secretKey };
 }
 
-export const sendblue: Channel = { name: "imessage", parseInbound, send };
+async function post(url: string, body: Record<string, unknown>, what: string): Promise<void> {
+  const res = await fetch(url, { method: "POST", headers: headers(), body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(`Sendblue ${what} failed ${res.status}: ${await res.text()}`);
+}
+
+async function send(to: string, text: string): Promise<void> {
+  const { apiUrl, fromNumber } = env.sendblue();
+  await post(apiUrl, { number: to, content: text, ...(fromNumber ? { from_number: fromNumber } : {}) }, "send");
+}
+
+/**
+ * Read receipt + typing bubble. Both need an existing iMessage conversation,
+ * which is always true here since we're reacting to an inbound message.
+ * The bubble auto-clears after max_duration_ms or when our reply lands.
+ */
+async function acknowledge(msg: InboundMessage): Promise<void> {
+  const { fromNumber } = env.sendblue();
+  const base = env.sendblue().apiUrl.replace(/\/api\/send-message\/?$/, "");
+  const from = fromNumber ? { from_number: fromNumber } : {};
+  await Promise.all([
+    fromNumber ? post(`${base}/api/mark-read`, { number: msg.from, ...from }, "mark-read") : Promise.resolve(),
+    post(`${base}/api/send-typing-indicator`, { number: msg.from, ...from, state: "start", max_duration_ms: 60000 }, "typing"),
+  ]);
+}
+
+export const sendblue: Channel = { name: "imessage", parseInbound, send, acknowledge };
