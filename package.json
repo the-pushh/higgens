@@ -1,0 +1,26 @@
+{
+  "name": "higgens",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openrouter/ai-sdk-provider": "^3.1.0",
+    "@supabase/supabase-js": "^2.117.2",
+    "ai": "^7.0.118",
+    "next": "16.3.6",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@11.24.0"
+}
